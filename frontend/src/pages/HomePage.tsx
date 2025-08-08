@@ -1,11 +1,11 @@
 import { Link } from 'react-router-dom';
 import { FaFingerprint, FaUsers, FaLaptop } from 'react-icons/fa';
-
+import Header from '../components/common/Header'
 export const HomePage = () => {
     return (
         // 전체 페이지 컨테이너: 은은한 그라데이션 배경
         <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black text-white flex flex-col items-center justify-center p-4">
-
+            <Header/>
             {/* 1. 히어로 섹션 */}
             <header className="relative z-10 text-center py-20 px-4 md:px-8 max-w-4xl">
                 <h1 className="text-6xl md:text-8xl font-bold mb-4 tracking-tight">

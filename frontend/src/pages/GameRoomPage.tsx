@@ -1,126 +1,109 @@
-/* --------------------------------------------------
- * pages/GameRoomPage.tsx
- * -------------------------------------------------- */
-import { useEffect, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import axios from 'axios';
-import { io, Socket } from 'socket.io-client';
+// pages/GameRoomPage.tsx
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/Auth';
+
+// ✅ 수정: 두 개의 훅을 임포트합니다.
+import { useGame } from '../hooks/useGame'; 
+import { useChat } from '../hooks/useChat'; 
 
 import PokerTable from '../components/game/PokerTable';
 import PlayerController from '../components/game/PlayerController';
 import GameRoomInfo from '../components/game/GameRoomInfo';
+import ChatArea from '../components/game/ChatArea'; // 채팅 컴포넌트는 남겨둡니다.
 
-/* ---------- 타입 (스냅샷) ---------- */
-type SnapPlayer = {
-    id: string;
-    name: string;
-    chips: number;
-    bet: number;
-    status: 'active' | 'folded' | 'all-in';
-    timer: number;
-    blind?: 'SB' | 'BB';
-    hole: (string | null)[];
-};
-
-type Snapshot = {
-    phase: string;            // preflop | flop | ...
-    community: { suit: string; rank: string }[];
-    pot: number;
-    dealerPos: number;
-    hand: number;
-    currentId: string;        // 소켓 ID
-    players: SnapPlayer[];
-};
+// 타입 정의는 이제 각 훅 파일에서 가져오거나 필요시 여기에 선언.
+import type { Snapshot, Message } from '../types/game';
 
 export const GameRoomPage = () => {
-    const { roomId = '' } = useParams();           // /game/:roomId
-    const socketRef = useRef<Socket>();
-    const [meta, setMeta] = useState<any>(null);   // REST 방 정보
-    const [snap, setSnap] = useState<Snapshot>();  // 실시간 스냅샷
-    const [myId, setMyId] = useState<string>('');  // 내 소켓 ID
+    const { roomId = '' } = useParams();
+    const { user } = useAuth();
+    const navigate = useNavigate();
 
-    /* ---------- 1) REST : 방 메타 ---------- */
+    // ✅ useGame 훅 사용 (주석 처리)
+    const { 
+        gameSocket, 
+        snap, 
+        myId, 
+        roomError, 
+        sendPlayerAction 
+    } = useGame(roomId, user); // 게임 관련 훅 호출은 유지하되, 반환값은 사용하지 않음
+
+    // ✅ useChat 훅 사용 (채팅 관련 훅이므로 남겨둡니다.)
+    const { 
+        chatSocket, 
+        messages, 
+        sendChatMessage 
+    } = useChat(roomId, user);
+
+    // 게임 메타 정보는 채팅과 직접적인 관련이 없어 주석 처리
+    const [meta] = useState(() => ({
+        name: `홀덤 방 (${roomId})`,
+        maxPlayers: 8,
+        smallBlind: 10,
+        bigBlind: 20,
+        ante: 0,
+    }));
+    
     useEffect(() => {
-        axios
-            .get(`http://localhost:4000/api/rooms/${roomId}`)
-            .then((r) => setMeta(r.data))
-            .catch(() => alert('방을 찾을 수 없습니다.'));
-    }, [roomId]);
-
-    /* ---------- 2) WebSocket 연결 ---------- */
-    useEffect(() => {
-        if (!roomId) return;
-        const socket = io('http://localhost:4000');
-        socketRef.current = socket;
-
-        socket.emit('join', { roomId, name: 'Me' });
-
-        socket.on('joined', (p) => setMyId(p.id));
-        socket.on('state', (s: Snapshot) => setSnap(s));
-        socket.on('handFinished', (data) => console.log('Hand finished', data));
-
-        return () => socket.disconnect();
-    }, [roomId]);
-
-    /* ---------- 3) 보호용 로딩 ---------- */
-    if (!meta || !snap || !snap.players?.length) {
-        return <div className="text-white p-10">Loading…</div>;
-    }
-
-    /* ---------- 4) 현재 플레이어 계산 ---------- */
+        if (roomError) {
+            alert('요청한 방이 존재하지 않습니다. 메인 로비로 돌아갑니다.');
+            navigate('/');
+        }
+    }, [ roomError, navigate ]); 
+    
     const curIdx = snap.players.findIndex((p) => p.id === snap.currentId);
-    if (curIdx === -1) {
-        return (
-            <div className="text-red-500 p-10">
-                잘못된 상태: currentId 미일치
-            </div>
-        );
-    }
-
-    const players = snap.players;
-    const current = players[curIdx];
-    const highestBet = Math.max(...players.map((p) => p.bet));
-    const callAmount = highestBet - current.bet;
-    const minRaise = callAmount + Number(meta.bigBlind || 100);
-    const isMyTurn = current.id === myId;
-
-    /* ---------- 5) 액션 전송 ---------- */
-    const send = (payload: any) =>
-        socketRef.current?.emit('action', { roomId, ...payload });
-
-    /* ---------- 6) 렌더 ---------- */
+    const current = curIdx !== -1 ? snap.players[curIdx] : null;
+    const highestBet = snap.players.reduce((max, p) => Math.max(max, p.bet), 0);
+    const callAmount = current ? highestBet - current.bet : 0;
+    const isMyTurn = current && current.id === myId;
+    const isShowdown = snap.phase === 'showdown';
+    
     return (
         <div className="w-screen h-screen flex items-center justify-center relative">
+        
             <PokerTable
-                players={players}
+                players={snap.players}
                 community={snap.community}
                 currentId={snap.currentId}
-            />
+            /> 
 
-            <PlayerController
-                isCurrent={isMyTurn}
-                chips={current.chips}
-                callAmount={callAmount}
-                minRaise={minRaise}
-                onFold={() => send({ type: 'fold' })}
-                onCheck={() => send({ type: 'check' })}
-                onCall={() => send({ type: 'call' })}
-                onRaise={(amt: number) => send({ type: 'raise', amount: amt })}
-            />
+            {current &&
+                <PlayerController
+                    isCurrent={isMyTurn && !isShowdown}
+                    chips={current.chips}
+                    callAmount={callAmount}
+                    minRaise={0}
+                    onFold={() => sendPlayerAction('fold')}
+                    onCheck={() => sendPlayerAction('check')}
+                    onCall={() => sendPlayerAction('call')}
+                    onRaise={(amt: number) => sendPlayerAction('raise', amt)}
+                />
+            } 
 
-            <GameRoomInfo
+           
+             <GameRoomInfo
                 roomId={roomId}
                 roomName={meta.name}
-                playerCount={players.filter((p) => p.status === 'active').length}
+                playerCount={snap.players.length}
                 maxPlayers={meta.maxPlayers}
                 smallBlind={meta.smallBlind}
                 bigBlind={meta.bigBlind}
                 ante={meta.ante || 0}
                 potSize={snap.pot}
                 dealerPosition={snap.dealerPos}
-                handNumber={snap.hand}
+                handNumber={snap.handNumber}
                 roundName={snap.phase}
-                timeLeft={current.timer}
+                timeLeft={0}
+            /> 
+            
+            {/* ✅ 채팅 관련 컴포넌트는 그대로 남겨둡니다. */}
+            <ChatArea
+                socket={chatSocket} 
+                roomId={roomId}
+                nickname={user?.nickname || 'Guest'}
+                messages={messages}
+                onSendMessage={sendChatMessage} 
             />
         </div>
     );

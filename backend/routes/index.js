@@ -1,12 +1,15 @@
-import { Router } from 'express';
-import authRoutes  from './auth.js';
-import userRoutes  from './user.js';
-import roomsRoutes from './rooms.js';
+import express from 'express';
+import createAuthRoutes from './auth.js';
+import createUserRoutes from './user.js';
+import createRoomRoutes from './rooms.js';
 
-const router = Router();
+// server.js에서 전달받은 전역 객체(rooms, engines, io)를 각 라우터에 전달
+export default function createRouter(globalContext) {
+  const router = express.Router();
 
-router.use('/auth',  authRoutes);   // /api/auth/*
-router.use('/user',  userRoutes);   // /api/user/*
-router.use('/rooms', roomsRoutes);  // /api/rooms/*
+  router.use('/auth', createAuthRoutes(globalContext));
+  router.use('/user', createUserRoutes(globalContext));
+  router.use('/rooms', createRoomRoutes(globalContext));
 
-export default router;
+  return router;
+}

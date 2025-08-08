@@ -1,136 +1,58 @@
-/* ------------------------------------------------------------------
- * server.js — Trusted-Holdem 백엔드 (Express + Socket.IO)
- *   · 방 CRUD  (REST)
- *   · 멀티룸 GameEngine  (WebSocket)
- *   · 간단한 예외 처리 / CORS / 헬스체크
- * ---------------------------------------------------------------- */
+// server.js
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import morgan from 'morgan';
-import { nanoid } from 'nanoid';
 import dotenv from 'dotenv';
-import GameEngine from './game/engine.js';
+
+import connectDB from './db/index.js';
+import createRouter from './routes/index.js';
+import User from './models/User.js';
+import GameRound from './models/GameRound.js';
+
+import initializeGameHandlers from './sockets/gameHandlers.js';
+import initializeChatHandlers from './sockets/chatHandlers.js'; 
 
 dotenv.config();
-const PORT = process.env.PORT || 4000;
 
-/* ─────────────── 1) 기본 셋업 ─────────────── */
 const app = express();
-app.use(cors());
+const server = http.createServer(app);
+
+// 단일 Socket.IO 서버 인스턴스
+const io = new Server(server, {
+  cors: {
+    origin: "*", 
+    methods: ["GET", "POST"]
+  }
+});
+
+connectDB();
+
+const rooms = new Map(); // 전역 게임 룸 상태 (GameHandlers에서만 사용)
+
+app.use(cors({
+  origin: 'http://localhost:5173', // ✅ 여러분의 프론트엔드 URL로 바꿔주세요.
+  methods: ['GET', 'POST', 'PUT', 'DELETE'], // 허용할 HTTP 메서드
+  credentials: true // 쿠키, 인증 헤더 등을 허용할지 여부 (필요한 경우)
+}));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
-const httpServer = http.createServer(app);
-const io = new Server(httpServer, { cors: { origin: '*' } });
+const apiRouter = createRouter({ rooms, io }); // 필요하다면 라우터에도 io 전달
+app.use('/api', apiRouter);
 
-/* ─────────────── 2) 룸 / 엔진 저장소 ─────────────── */
-const rooms = [];                    // [{id,name,players,maxPlayers,blinds,buyIn}]
-const engines = new Map();           // roomId → GameEngine
+// ✅ 핵심 변경: 네임스페이스 정의 및 핸들러 연결
+const gameIo = io.of('/game'); // 게임 로직을 위한 네임스페이스
+const chatIo = io.of('/chat'); // 채팅 로직을 위한 네임스페이스
 
-function createEngine(roomId, cfg = {}) {
-    const engine = new GameEngine(io, roomId, cfg);
-    engines.set(roomId, engine);
-    return engine;
-}
+// 게임 핸들러 초기화 (gameIo 인스턴스 전달)
+initializeGameHandlers({ io: gameIo, rooms, User, GameRound }); 
+initializeChatHandlers({ io: chatIo }); 
 
-/* ─────────────── 3) REST API ─────────────── */
-/* 전체 목록 */
-app.get('/api/rooms', (_, res) => res.json({ items: rooms }));
-
-/* 생성 */
-app.post('/api/rooms', (req, res) => {
-    const { name = 'New Table', maxPlayers = 8, blinds = '5 / 10', buyIn = 100 } = req.body;
-    const id = `room-${nanoid(6)}`;
-
-    const room = { id, name, players: 0, maxPlayers, blinds, buyIn };
-    rooms.push(room);
-    createEngine(id);
-
-    res.status(201).json(room);
+const PORT = process.env.PORT || 4000;
+server.listen(PORT, () => {
+  console.log(`✅ Server is running on port ${PORT}`);
+  console.log(`🔗 http://localhost:${PORT}`);
 });
-
-/* 삭제 */
-app.delete('/api/rooms/:id', (req, res) => {
-    const idx = rooms.findIndex(r => r.id === req.params.id);
-    if (idx === -1) return res.status(404).json({ error: 'ROOM_NOT_FOUND' });
-
-    rooms.splice(idx, 1);
-    engines.delete(req.params.id);
-    io.to(req.params.id).emit('roomClosed');
-    res.sendStatus(204);
-});
-
-/* 상세 */
-app.get('/api/rooms/:id', (req, res) => {
-    const room = rooms.find(r => r.id === req.params.id);
-    if (!room) return res.status(404).json({ error: 'ROOM_NOT_FOUND' });
-    res.json(room);
-});
-
-/* 헬스 체크 */
-app.get('/ping', (_, res) => res.send('pong'));
-
-/* ─────────────── 4) WebSocket ─────────────── */
-io.on('connection', socket => {
-    /* join { roomId,name } */
-    socket.on('join', ({ roomId, name }) => {
-        let engine = engines.get(roomId);
-
-        /* 존재하지 않는 방이면 즉석 생성 (직접 URL 접근 대비) */
-        if (!engine) {
-            engine = createEngine(roomId);
-            rooms.push({
-                id: roomId,
-                name: roomId,
-                players: 0,
-                maxPlayers: 8,
-                blinds: '5 / 10',
-                buyIn: 100,
-            });
-        }
-
-        /* 등록 */
-        socket.join(roomId);
-        const player = engine.addPlayer({ id: socket.id, name });
-
-        /* 방 메타 players 수 갱신 */
-        const meta = rooms.find(r => r.id === roomId);
-        if (meta)
-            meta.players = engine.players.filter(pl => pl.status !== 'folded').length;
-
-        socket.emit('joined', player);
-    });
-
-    /* action { roomId, type, amount? } */
-    socket.on('action', ({ roomId, ...payload }) => {
-        const engine = engines.get(roomId);
-        if (engine) engine.playerAction(socket.id, payload);
-    });
-
-    /* disconnect → 모든 엔진에 fold 전달 */
-    socket.on('disconnect', () => {
-        engines.forEach((engine, rid) => {
-            engine.playerAction(socket.id, { type: 'fold' });
-
-            /* 룸에 아무 소켓도 없으면 정리 */
-            if (!io.sockets.adapter.rooms.get(rid)?.size) {
-                engines.delete(rid);
-                const idx = rooms.findIndex(r => r.id === rid);
-                if (idx !== -1) rooms.splice(idx, 1);
-            }
-        });
-    });
-});
-
-/* ─────────────── 5) 에러 핸들러 ─────────────── */
-app.use((err, _req, res, _next) => {
-    console.error(err);
-    res.status(500).json({ error: 'INTERNAL_ERROR' });
-});
-
-/* ─────────────── 6) 서버 시작 ─────────────── */
-httpServer.listen(PORT, () =>
-    console.log(`♠ Poker backend running : http://localhost:${PORT}`)
-);

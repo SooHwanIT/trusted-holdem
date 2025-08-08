@@ -14,8 +14,9 @@ export const SignUpPage = () => {
         e.preventDefault();
         try {
             const { data } = await axios.post('/api/auth/register', form);
+            console.log('Frontend sending data:', form); 
             login(data.token);
-            nav('/mypage');
+            nav('/');
         } catch (ex: any) {
             setErr(ex.response?.data?.error || '회원가입 실패');
         }

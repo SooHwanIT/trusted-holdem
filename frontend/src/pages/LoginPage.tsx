@@ -17,7 +17,7 @@ export const LoginPage = () => {
         try {
             const { data } = await axios.post('/api/auth/login', { email, password: pw });
             login(data.token);
-            nav('/mypage');
+            nav('/');
         } catch {
             setErr('이메일 또는 비밀번호가 올바르지 않습니다.');
         }
