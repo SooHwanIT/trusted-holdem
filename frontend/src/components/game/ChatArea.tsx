@@ -5,21 +5,15 @@ import { useRef, useState } from 'react';
 import { nanoid } from 'nanoid';
 import { Socket } from 'socket.io-client';
 
-// 메시지 타입 정의
-type Message = {
-    id: string;
-    sender: string;
-    text: string;
-    timestamp: number;
-};
+// 'useChat' 훅에서 정의한 Message 인터페이스를 import하여 사용
+import type { Message } from '../hooks/useChat';
 
-// 컴포넌트 props 타입 정의
 interface ChatAreaProps {
-    socket: Socket | null; // 👈️ 소켓 객체를 props로 받음
+    socket: Socket | null;
     roomId: string;
     nickname: string;
-    messages: Message[]; // 👈️ 메시지 배열을 props로 받음
-    onSendMessage: (message: string) => void; // 👈️ 메시지 전송 핸들러를 props로 받음
+    messages: Message[];
+    onSendMessage: (message: string) => void;
 }
 
 const ChatArea: React.FC<ChatAreaProps> = ({ socket, roomId, nickname, messages, onSendMessage }) => {
@@ -29,7 +23,6 @@ const ChatArea: React.FC<ChatAreaProps> = ({ socket, roomId, nickname, messages,
     const handleFormSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (messageInput.trim() !== '') {
-            // 부모 컴포넌트의 메시지 전송 핸들러 호출
             onSendMessage(messageInput);
             setMessageInput('');
             if (chatInputRef.current) {
@@ -43,9 +36,19 @@ const ChatArea: React.FC<ChatAreaProps> = ({ socket, roomId, nickname, messages,
             <div className="text-white font-bold mb-2">채팅</div>
             <div className="flex-grow overflow-y-auto mb-2 p-2 bg-gray-900 rounded">
                 {messages.map((msg) => (
-                    <div key={msg.id} className="text-sm mb-1">
-                        <span className="font-semibold text-blue-400">{msg.sender}:</span>
-                        <span className="ml-1 text-gray-300">{msg.text}</span>
+                    // ✨ sender가 'system'인지 확인하는 조건으로 변경
+                    <div
+                        key={msg.id}
+                        className={`text-sm mb-1 ${msg.sender === 'system' ? 'text-gray-400 italic text-center' : ''}`}
+                    >
+                        {msg.sender === 'system' ? (
+                            <span>{msg.text}</span>
+                        ) : (
+                            <>
+                                <span className="font-semibold text-blue-400">{msg.sender}:</span>
+                                <span className="ml-1 text-gray-300">{msg.text}</span>
+                            </>
+                        )}
                     </div>
                 ))}
             </div>

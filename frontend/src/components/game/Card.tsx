@@ -90,6 +90,7 @@ export const Card: React.FC<CardProps> = ({ suit, rank, width = 64, className = 
     );
 
     const CenterGraphics = () => {
+        // 페이스 카드는 별도로 처리
         if ([CardRank.Jack, CardRank.Queen, CardRank.King].includes(rank)) {
             return (
                 <text
@@ -105,12 +106,19 @@ export const Card: React.FC<CardProps> = ({ suit, rank, width = 64, className = 
             );
         }
 
-        const pipCount = rank === CardRank.Ace ? 1 : parseInt(rank, 10);
-        const layout = pipLayouts[pipCount] as [number, number][];
+        // 숫자 카드의 pipCount를 계산
+        const pipCount = rank === CardRank.Ace ? 1 : parseInt(rank as string, 10);
+
+        // pipCount가 1에서 10 사이의 유효한 값인지 확인
+        const isValidPipCount = pipCount >= 1 && pipCount <= 10;
+
+        // 유효한 경우 pipLayouts에서 레이아웃을 가져오고, 아니면 빈 배열로 초기화
+        const layout = isValidPipCount ? pipLayouts[pipCount] : [];
         const pipSize = rank === CardRank.Ace ? 48 * scale : PIP_FONT;
 
         return (
             <>
+                {/* layout이 빈 배열일 경우 map은 아무것도 렌더링하지 않습니다. */}
                 {layout.map(([px, py], idx) => (
                     <text
                         key={idx}
@@ -126,7 +134,6 @@ export const Card: React.FC<CardProps> = ({ suit, rank, width = 64, className = 
             </>
         );
     };
-
     return (
         <svg
             width={w}

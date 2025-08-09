@@ -2,34 +2,35 @@
 import { useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 
-import type { Message } from '../types/game'; // 또는 '../types/socket'
+// Message 인터페이스를 확장하여 'type' 속성을 추가합니다.
+// type 속성은 'system' 또는 'user' 값을 가지며, 필수는 아닙니다.
+export interface Message {
+    id: string;
+    sender: string;
+    text: string;
+    timestamp: number;
+    type?: 'system' | 'user'; // ✨ 수정된 부분
+}
 
 const SOCKET_URL = 'http://localhost:4000'; // 기본 서버 URL
 
 export const useChat = (roomId: string, user: { nickname: string } | null) => {
-    const chatSocketRef = useRef<Socket | null>(null); // 이름 변경: chatSocketRef
+    const chatSocketRef = useRef<Socket | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
 
     useEffect(() => {
         if (!user || !roomId) return;
-        
-        // ✅ 채팅 네임스페이스로 연결
-        const socket = io(SOCKET_URL + '/chat'); 
+
+        const socket = io(SOCKET_URL + '/chat');
         chatSocketRef.current = socket;
 
-        // 채팅 룸 조인 (서버의 joinChatRoom 이벤트와 매칭)
-        socket.emit('joinChatRoom', { roomId }); 
+        socket.emit('joinChatRoom', { roomId });
 
-        // 'chatMessage' 이벤트 리스너
         socket.on('chatMessage', (message: Message) => {
             console.log(`[Chat Client] Received 'chatMessage' event:`, message);
             setMessages((prev) => [...prev, message]);
         });
-        
-        
 
-
-        
         return () => {
             if (chatSocketRef.current) {
                 console.log(`[Chat Client] Disconnecting chat socket for room ${roomId}`);
@@ -38,19 +39,19 @@ export const useChat = (roomId: string, user: { nickname: string } | null) => {
         };
     }, [roomId, user]);
 
-    // 채팅 메시지 전송 함수
     const sendChatMessage = (text: string) => {
         if (chatSocketRef.current && user?.nickname) {
-            chatSocketRef.current.emit('chatMessage', { 
+            chatSocketRef.current.emit('chatMessage', {
                 roomId,
                 sender: user.nickname,
-                text: text
+                text: text,
+                type: 'user' // ✨ 클라이언트에서 보낼 때는 'user'로 명시
             });
         }
     };
 
     return {
-        chatSocket: chatSocketRef.current, // 이름 변경: chatSocket
+        chatSocket: chatSocketRef.current,
         messages,
         sendChatMessage,
     };

@@ -1,21 +1,22 @@
 import React, { useEffect, useRef } from "react";
 import { User, Coins, Clock } from "lucide-react";
 import { Card, CardBack } from "./Card";
-import "./PlayerCard.css";  // keyframes 정의된 CSS
+import "./PlayerCard.css";
 
+// Player 인터페이스를 실제 데이터 구조에 맞게 수정
 interface Player {
     name: string;
     avatarUrl?: string;
     blind?: string;
-    status: "active" | "folded" | "all-in";
+    status: "active" | "folded" | "all-in" | "busted";
     isCurrent: boolean;
     role?: "dealer" | "sb" | "bb";
     lastAction?: string;
-    timer?: number;        // 남은 시간
-    timeLimit?: number;    // 총 시간
-    totalBet: number;
-    roundBet: number;
-    holeCards: { suit: string; rank: string }[];
+    timer?: number;
+    timeLimit?: number;
+    bet: number; // totalBet -> bet으로 변경
+    currentRoundBet: number; // roundBet -> currentRoundBet으로 변경
+    hole: { suit: string; rank: string }[]; // holeCards -> hole으로 변경
 }
 
 interface PlayerCardProps {
@@ -29,12 +30,18 @@ const PlayerCard: React.FC<PlayerCardProps> = ({ player, isMe }) => {
     const rightBarRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        if (isCurrent && typeof timeLimit === "number") {
+        if (isCurrent && typeof timeLimit === "number" && leftBarRef.current && rightBarRef.current) {
+            leftBarRef.current.style.animation = 'none';
+            rightBarRef.current.style.animation = 'none';
+            void leftBarRef.current.offsetWidth;
+            void rightBarRef.current.offsetWidth;
+
             const anim = `countdown ${timeLimit}s linear forwards`;
-            leftBarRef.current!.style.animation = anim;
-            rightBarRef.current!.style.animation = anim;
+            leftBarRef.current.style.animation = anim;
+            rightBarRef.current.style.animation = anim;
         }
-    }, [isCurrent, timeLimit]);
+        // player 객체 전체를 로깅하여 props가 올바르게 전달되는지 확인
+    }, [isCurrent, timeLimit, player]); // player를 의존성 배열에 추가하여 데이터 변경 시 로깅
 
     return (
         <div
@@ -42,7 +49,7 @@ const PlayerCard: React.FC<PlayerCardProps> = ({ player, isMe }) => {
                 isCurrent
                     ? "transform -translate-y-1 scale-105 shadow-2xl ring-2 ring-blue-500"
                     : ""
-            }`}
+            } ${player.status === "folded" ? "opacity-50" : ""}`}
         >
             {/* 왼쪽 프로그래스 바 */}
             {isCurrent && typeof timer === "number" && typeof timeLimit === "number" && (
@@ -69,8 +76,8 @@ const PlayerCard: React.FC<PlayerCardProps> = ({ player, isMe }) => {
             {/* Blind Badge */}
             {player.blind && (
                 <span className="absolute top-1 right-1 px-1 py-0.5 text-[8px] font-bold rounded bg-yellow-400 text-gray-900">
-          {player.blind}
-        </span>
+                    {player.blind}
+                </span>
             )}
 
             {/* Header */}
@@ -90,12 +97,12 @@ const PlayerCard: React.FC<PlayerCardProps> = ({ player, isMe }) => {
                     <span className="text-sm font-semibold truncate">{player.name}</span>
                     <div className="flex items-center space-x-1 text-[9px] mt-1">
                         <Coins className="w-3 h-3" />
-                        <span>{player.totalBet}/{player.roundBet}</span>
+                        <span>{player.bet}/{player.currentRoundBet}</span> {/* bet, currentRoundBet으로 수정 */}
                     </div>
                     {player.role && (
                         <span className="text-[8px] px-1 bg-gray-600 rounded mt-1">
-              {player.role === "dealer" ? "D" : player.role === "sb" ? "SB" : "BB"}
-            </span>
+                            {player.role === "dealer" ? "D" : player.role === "sb" ? "SB" : "BB"}
+                        </span>
                     )}
                 </div>
             </div>
@@ -109,11 +116,13 @@ const PlayerCard: React.FC<PlayerCardProps> = ({ player, isMe }) => {
                 )}
                 <div className="flex space-x-1">
                     {isMe ? (
-                        player.holeCards.map((c, i) => (
+                        // 카드가 유효한지 확인하는 로직 추가
+                        player.hole.filter(c => c).map((c, i) => ( // player.hole로 수정
                             <Card key={i} suit={c.suit} rank={c.rank} width={48} className="shadow" />
                         ))
                     ) : (
-                        [0, 1].map((i) => <CardBack key={i} width={48} className="shadow" />)
+                        // 상대방 카드 (2장 뒷면)
+                        [...Array(2)].map((_, i) => <CardBack key={i} width={48} className="shadow" />)
                     )}
                 </div>
             </div>
@@ -136,12 +145,12 @@ const PlayerCard: React.FC<PlayerCardProps> = ({ player, isMe }) => {
                             : "bg-green-600"
                 }`}
             >
-        {player.status === "folded"
-            ? "Folded"
-            : player.status === "all-in"
-                ? "All-in"
-                : "Active"}
-      </span>
+                {player.status === "folded"
+                    ? "Folded"
+                    : player.status === "all-in"
+                        ? "All-in"
+                        : "Active"}
+            </span>
         </div>
     );
 };
