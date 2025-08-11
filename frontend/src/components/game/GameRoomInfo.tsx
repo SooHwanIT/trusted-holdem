@@ -1,95 +1,36 @@
-/** ----------------------------------
- * GameRoomInfo Component
- * ---------------------------------- */
-import React from "react";
-import { Coins, Users, Clock, Calendar, LayoutGrid, Flag } from "lucide-react";
+import React, { FC, ReactNode } from 'react';
+import { Coins, Calendar, LayoutGrid, Flag } from 'lucide-react';
 
-interface GameRoomInfoProps {
-    roomId: string;
-    roomName: string;
-    playerCount: number;
-    maxPlayers: number;
-    smallBlind: number;
-    bigBlind: number;
-    ante: number;
-    potSize: number;
-    dealerPosition: number;  // player index
-    handNumber: number;
-    roundName: string;
-    timeLeft: number; // seconds to next action
+export interface GameRoomInfoProps {
+    roomId: string; roomName: string; playerCount: number; maxPlayers: number;
+    smallBlind: number; bigBlind: number; ante: number; potSize: number;
+    dealerPosition: number; handNumber: number; roundName: string; timeLeft: number;
 }
 
-const formatTime = (sec: number) => {
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
-    return `${m}:${s.toString().padStart(2, '0')}`;
-};
+const InfoRow: FC<{ icon: ReactNode; label: string; value: ReactNode }> = ({ icon, label, value }) => (
+    <div className="flex items-center justify-between text-sm">
+        <div className="flex items-center gap-2 text-neutral-300">{icon}<span>{label}</span></div>
+        <span className="font-medium text-white">{value}</span>
+    </div>
+);
 
-const GameRoomInfo: React.FC<GameRoomInfoProps> = ({
-                                                       roomId,
-                                                       roomName,
-                                                       playerCount,
-                                                       maxPlayers,
-                                                       smallBlind,
-                                                       bigBlind,
-                                                       ante,
-                                                       potSize,
-                                                       dealerPosition,
-                                                       handNumber,
-                                                       roundName,
-                                                       timeLeft,
-                                                   }) => (
-    <div className="absolute top-4 right-4 w-72 p-5 bg-white bg-opacity-20 backdrop-blur-lg border border-white border-opacity-30 rounded-2xl shadow-xl text-white space-y-3">
-        {/* Header: Room info */}
-        <div className="flex justify-between items-center">
-            <div>
-                <h2 className="text-xl font-bold truncate">{roomName}</h2>
-                <p className="text-xs text-gray-200">ID: {roomId}</p>
-            </div>
-            <div className="flex items-center space-x-1 text-sm">
-                <Users className="w-5 h-5 text-blue-200" />
-                <span>{playerCount}/{maxPlayers}</span>
-            </div>
+const GameRoomInfo: FC<GameRoomInfoProps> = (props) => (
+    <div className="flex flex-col space-y-3">
+        <div>
+            <h2 className="text-lg font-bold text-white truncate">{props.roomName}</h2>
+            <p className="text-xs text-neutral-300">ID: {props.roomId}</p>
         </div>
-
-        {/* Stakes: SB/BB/Ante */}
-        <div className="grid grid-cols-6 gap-1 text-sm">
-            <Flag className="w-4 h-4 text-red-300 col-span-1" />
-            <span className="col-span-2 text-gray-200">SB:</span>
-            <span className="col-span-3">{smallBlind}</span>
-            <Flag className="w-4 h-4 text-yellow-300 col-span-1" />
-            <span className="col-span-2 text-gray-200">BB:</span>
-            <span className="col-span-3">{bigBlind}</span>
-            <LayoutGrid className="w-4 h-4 text-green-300 col-span-1" />
-            <span className="col-span-2 text-gray-200">Ante:</span>
-            <span className="col-span-3">{ante}</span>
+        <div className="grid grid-cols-3 gap-x-4 text-center">
+            <div><p className="text-xs text-neutral-300">Small Blind</p><p className="font-semibold text-white">{props.smallBlind}</p></div>
+            <div><p className="text-xs text-neutral-300">Big Blind</p><p className="font-semibold text-white">{props.bigBlind}</p></div>
+            <div><p className="text-xs text-neutral-300">Ante</p><p className="font-semibold text-white">{props.ante}</p></div>
         </div>
-
-        {/* Pot & Round */}
-        <div className="flex justify-between items-center text-sm">
-            <div className="flex items-center space-x-1">
-                <Coins className="w-5 h-5 text-yellow-300" />
-                <span>Pot: {potSize}</span>
-            </div>
-            <div className="flex items-center space-x-1">
-                <Calendar className="w-5 h-5 text-gray-300" />
-                <span>Hand #{handNumber}</span>
-            </div>
-        </div>
-        <div className="text-sm">
-            <span className="font-medium">Round:</span> {roundName}
-        </div>
-
-        {/* Dealer & Timer */}
-        <div className="flex justify-between items-center text-sm">
-            <div className="flex items-center space-x-1">
-                <Clock className="w-5 h-5 text-blue-300" />
-                <span>{formatTime(timeLeft)}</span>
-            </div>
-            <div className="flex items-center space-x-1">
-                <span className="text-gray-200">Dealer:</span>
-                <span>#{dealerPosition + 1}</span>
-            </div>
+        <hr className="border-t border-white/10" />
+        <div className="space-y-2">
+            <InfoRow icon={<Coins className="h-4 w-4" />} label="Total Pot" value={props.potSize.toLocaleString()} />
+            <InfoRow icon={<Calendar className="h-4 w-4" />} label="Hand No." value={`#${props.handNumber}`} />
+            <InfoRow icon={<LayoutGrid className="h-4 w-4" />} label="Current Round" value={props.roundName.charAt(0).toUpperCase() + props.roundName.slice(1)} />
+            <InfoRow icon={<Flag className="h-4 w-4" />} label="Dealer" value={`Player #${props.dealerPosition + 1}`} />
         </div>
     </div>
 );

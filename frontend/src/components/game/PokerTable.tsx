@@ -33,18 +33,28 @@ const PokerTable: React.FC<PokerTableProps> = ({ players, community, currentId, 
     return (
         <div
             id="table"
-            className="relative bg-green-700 rounded-lg shadow-inner flex items-center justify-center"
-            style={{ width: 800, height: 400 }}
+            className="relative rounded-xl shadow-inner flex items-center justify-center bg-cover bg-center"
+            style={{
+                width: 800,
+                height: 400,
+                backgroundColor: '#15803d', // 이미지 로딩 실패 시 보여줄 기본 배경색 (Tailwind green-600)
+                backgroundImage: "url('/images/poker-felt-texture.jpg')",
+                boxShadow: '0 0 20px rgba(0, 0, 0, 0.6)',
+                border: '2px solid #556B2F', // 어두운 녹색 테두리 (선택 사항)
+            }}
         >
+            {/* 어두운 오버레이를 추가하여 카드 및 텍스트 가독성 확보 (선택 사항) */}
+            {/* <div className="absolute inset-0 bg-black/20 rounded-xl"></div> */}
+
             {/* Community Cards */}
-            <div className="flex space-x-2">
+            <div className="relative z-10 flex space-x-4">
                 {community.map((c, i) => (
-                    <Card key={i} suit={c.suit} rank={c.rank} width={96} className="shadow-lg" />
+                    <Card key={i} suit={c.suit} rank={c.rank} width={96} className="shadow-md" />
                 ))}
             </div>
 
             {/* Top */}
-            <div className="absolute top-[-160px] left-0 w-full flex justify-around">
+            <div className="absolute top-[-160px] left-0 w-full flex justify-around z-10">
                 {topPlayers.map((p) => (
                     <PlayerCard
                         key={p.id}
@@ -58,7 +68,6 @@ const PokerTable: React.FC<PokerTableProps> = ({ players, community, currentId, 
                             lastAction: undefined,
                             timer: p.timer,
                             timeLimit: p.timeLimit,
-                            // PlayerCard 인터페이스에 맞게 속성 이름 변경
                             bet: p.bet,
                             currentRoundBet: p.currentRoundBet,
                             hole: p.hole,
@@ -69,7 +78,7 @@ const PokerTable: React.FC<PokerTableProps> = ({ players, community, currentId, 
             </div>
 
             {/* Bottom */}
-            <div className="absolute bottom-[-160px] left-0 w-full flex justify-around">
+            <div className="absolute bottom-[-160px] left-0 w-full flex justify-around z-10">
                 {bottomPlayers.map((p) => (
                     <PlayerCard
                         key={p.id}
@@ -83,7 +92,6 @@ const PokerTable: React.FC<PokerTableProps> = ({ players, community, currentId, 
                             lastAction: undefined,
                             timer: p.timer,
                             timeLimit: p.timeLimit,
-                            // PlayerCard 인터페이스에 맞게 속성 이름 변경
                             bet: p.bet,
                             currentRoundBet: p.currentRoundBet,
                             hole: p.hole,
@@ -94,7 +102,7 @@ const PokerTable: React.FC<PokerTableProps> = ({ players, community, currentId, 
             </div>
 
             {/* Left */}
-            <div className="absolute left-[-220px] top-1/2 -translate-y-1/2 flex flex-col justify-around h-3/4">
+            <div className="absolute left-[-220px] top-1/2 -translate-y-1/2 flex flex-col justify-around h-3/4 z-10">
                 {leftPlayers.map((p) => (
                     <PlayerCard
                         key={p.id}
@@ -108,7 +116,6 @@ const PokerTable: React.FC<PokerTableProps> = ({ players, community, currentId, 
                             lastAction: undefined,
                             timer: p.timer,
                             timeLimit: p.timeLimit,
-                            // PlayerCard 인터페이스에 맞게 속성 이름 변경
                             bet: p.bet,
                             currentRoundBet: p.currentRoundBet,
                             hole: p.hole,
@@ -119,7 +126,7 @@ const PokerTable: React.FC<PokerTableProps> = ({ players, community, currentId, 
             </div>
 
             {/* Right */}
-            <div className="absolute right-[-220px] top-1/2 -translate-y-1/2 flex flex-col justify-around h-3/4">
+            <div className="absolute right-[-220px] top-1/2 -translate-y-1/2 flex flex-col justify-around h-3/4 z-10">
                 {rightPlayers.map((p) => (
                     <PlayerCard
                         key={p.id}
@@ -133,7 +140,6 @@ const PokerTable: React.FC<PokerTableProps> = ({ players, community, currentId, 
                             lastAction: undefined,
                             timer: p.timer,
                             timeLimit: p.timeLimit,
-                            // PlayerCard 인터페이스에 맞게 속성 이름 변경
                             bet: p.bet,
                             currentRoundBet: p.currentRoundBet,
                             hole: p.hole,
